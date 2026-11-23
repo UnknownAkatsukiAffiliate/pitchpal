@@ -264,12 +264,18 @@ canvas.chart{width:100%; height:200px; display:block}
       <div class="row"><span>Note names</span>
         <div class="seg" id="segAcc" style="width:190px"><button data-v="sharps">C♯ sharps</button><button data-v="flats">D♭ flats</button></div></div>
       <div class="row"><span>Auto-play each new note</span><button class="switch" id="autoSwitch" aria-label="Auto-play"></button></div>
+      <div class="row"><span>Any octave counts<br><small class="muted">Singing the same note higher or lower still counts</small></span><button class="switch" id="octSwitch" aria-label="Any octave counts"></button></div>
       <div class="row" style="padding-bottom:0"><button class="btn small" id="testSound">🔊 Test sound</button></div>
     </div>
     <div class="card">
       <div class="row" style="padding-top:0"><span>Mic sensitivity</span><b id="sensVal"></b></div>
       <input type="range" id="sensSlider" min="1" max="10" step="1">
       <p class="muted" style="font-size:13px; margin:6px 0 0">Turn it up if PitchPal misses quiet singing; down if it reacts to background noise.</p>
+    </div>
+    <div class="card">
+      <div class="row" style="padding-top:0"><span>Accuracy check</span><b id="calibStatus" class="muted" style="font-weight:600; font-size:14px"></b></div>
+      <p class="muted" style="font-size:13px; margin:0 0 10px">Test PitchPal against a known 440 Hz tone and fix any offset on your phone.</p>
+      <button class="btn" id="openCalib" style="width:100%">🎯 Check &amp; calibrate accuracy</button>
     </div>
     <div class="card">
       <div class="eyebrow">VOICE RANGE</div>
@@ -286,6 +292,27 @@ canvas.chart{width:100%; height:200px; display:block}
   <button data-tab="History"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h2v16h16v2H3zm4 12 4-5 3 3 5-7 1.6 1.2-6.4 9-3-3-2.6 3.3z"/></svg>History</button>
   <button data-tab="Settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.9a7 7 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7 7 0 0 0 1.7 1L11 21h4l.4-2.9a7 7 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>Settings</button>
 </nav>
+
+<!-- accuracy check / calibration -->
+<div id="calibOverlay" class="overlay hidden">
+  <div class="inner">
+    <h1>Accuracy check</h1>
+    <div class="card center">
+      <div class="eyebrow">PITCHPAL HEARS</div>
+      <div id="calHz" style="font-size:48px; font-weight:800; font-variant-numeric:tabular-nums; margin:6px 0">—</div>
+      <div id="calNote" class="muted" style="font-size:20px; font-weight:700">&nbsp;</div>
+    </div>
+    <div class="card">
+      <b>1. Play a 440 Hz tone from another device</b>
+      <p class="muted" style="font-size:14px; margin:6px 0 0">On your PC, open <b>szynalski.com/tone-generator</b>, set it to <b>440 Hz</b>, press Play, and hold your iPhone near the speaker. The number above should read about <b>440 Hz</b> (A4 ±0¢).</p>
+      <button class="btn primary" id="calMeasure" style="width:100%; margin-top:12px">Measure &amp; calibrate</button>
+      <p id="calResult" style="font-size:15px; margin:10px 0 0"></p>
+    </div>
+    <div class="card muted" style="font-size:13px" id="calInfo"></div>
+    <button class="btn" id="calReset" style="width:100%">Reset calibration</button>
+    <button class="btn green" id="calClose" style="width:100%; margin-top:10px">Done</button>
+  </div>
+</div>
 
 <!-- mode sheet -->
 <div id="modeSheet" class="sheet-back hidden">
@@ -448,6 +475,8 @@ const VOICE_PRESETS = [
   { name: "Mezzo", low: 57, high: 77 }, { name: "Soprano", low: 60, high: 81 },
 ];
 const TOLERANCE = { easy: 50, medium: 25, hard: 10 };
+// Fold a cents distance into −600…+600 (same note, any octave).
+const foldOctave = c => ((((c + 600) % 1200) + 1200) % 1200) - 600;
 
 // Major scale from the lowest root in range, up and back down: C D E F G A B C B A G F E D
 function scaleSequence(root, low, high) {
@@ -544,7 +573,9 @@ function createExercise(getSettings, hooks = {}) {
       if (time - ex._lastInTune > GRACE) resetHold();
       return;
     }
-    const cents = (NoteMath.midiFromFreq(freq, s.a4) - ex.target) * 100;
+    let cents = (NoteMath.midiFromFreq(freq, s.a4) - ex.target) * 100;
+    // "Any octave counts": measure distance to the nearest octave of the target.
+    if (s.anyOctave) cents = foldOctave(cents);
     ex.centsOff = cents;
     if (Math.abs(cents) <= TOLERANCE[s.difficulty]) {
       if (ex._holdStart == null) { ex._holdStart = time; ex._holdCents = []; }
@@ -590,7 +621,7 @@ const store = {
 };
 const DEFAULTS = { difficulty: "medium", holdTime: 0.6, a4: 440, accidentals: "sharps", autoPlay: true,
   rangeLow: 48, rangeHigh: 67, hasRange: false, mode: "random", scaleRoot: 0, intervalSemitones: 7,
-  intervalDirection: "up", tipDismissed: false, sensitivity: 6 };
+  intervalDirection: "up", tipDismissed: false, sensitivity: 6, anyOctave: true, inCorr: 1, outCorr: 1 };
 const S = Object.assign({}, DEFAULTS, store.get("settings", {}));
 const saveSettings = () => store.set("settings", S);
 let sessions = store.get("sessions", []);
@@ -603,12 +634,18 @@ const audio = { ctx: null, analyser: null, buf: null, detector: null, smoother: 
 const gateFor = s => 0.03 * Math.pow(0.65, s - 1);
 
 async function startAudio() {
-  const AC = window.AudioContext || window.webkitAudioContext;
-  audio.ctx = new AC();
-  await audio.ctx.resume();
+  // Open the mic FIRST, then create the AudioContext at the mic's sample rate.
+  // (Creating it the other way round can trigger an iOS Safari sample-rate
+  // mismatch that shifts every pitch reading.)
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   });
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const trackRate = (stream.getAudioTracks()[0]?.getSettings?.() || {}).sampleRate;
+  try { audio.ctx = trackRate ? new AC({ sampleRate: trackRate }) : new AC(); }
+  catch { audio.ctx = new AC(); }
+  audio.trackRate = trackRate || null;
+  await audio.ctx.resume();
   const src = audio.ctx.createMediaStreamSource(stream);
   audio.analyser = audio.ctx.createAnalyser();
   audio.analyser.fftSize = 2048;
@@ -624,7 +661,7 @@ async function startAudio() {
 // Reference tone: sine + two soft, fading overtones with smooth attack & release.
 function playTone(midi, duration = 1.0) {
   if (!audio.ctx) return;
-  const ctx = audio.ctx, t0 = ctx.currentTime + 0.02, f = NoteMath.freqFromMidi(midi, S.a4);
+  const ctx = audio.ctx, t0 = ctx.currentTime + 0.02, f = NoteMath.freqFromMidi(midi, S.a4) * (S.outCorr || 1);
   const release = 0.35;
   const master = ctx.createGain();
   master.gain.setValueAtTime(0, t0);
@@ -668,8 +705,16 @@ function loop(now) {
     audio.lastAnalysis = t;
     audio.analyser.getFloatTimeDomainData(audio.buf);
     let f = null;
-    if (toneBusy()) { audio.smoother.reset(); }
-    else { const est = audio.detector.detect(audio.buf); f = audio.smoother.add(est ? est.frequency : null); }
+    audio.raw = null;
+    if (toneBusy() && !calib.listenThroughTone) { audio.smoother.reset(); }
+    else {
+      const est = audio.detector.detect(audio.buf);
+      const corrected = est ? est.frequency * (S.inCorr || 1) : null;   // calibration correction
+      audio.raw = corrected;
+      f = audio.smoother.add(corrected);
+    }
+    if (calib.collecting) calib.collect(audio.raw, t);
+    if (!$("calibOverlay").classList.contains("hidden")) renderCalibLive(f);
     audio.freq = f;
     if (f) audio.history.push({ t, f });
     while (audio.history.length && audio.history[0].t < t - 6) audio.history.shift();
@@ -838,7 +883,7 @@ function drawGraph(now) {
     if (b.t - a.t > 0.15) continue;
     const ma = NoteMath.midiFromFreq(a.f, S.a4), mb = NoteMath.midiFromFreq(b.f, S.a4);
     let col = "#3b82f6";
-    if (ex.target != null) { const d = Math.abs(mb - ex.target) * 100, tol = TOLERANCE[S.difficulty];
+    if (ex.target != null) { const raw = (mb - ex.target) * 100, d = Math.abs(S.anyOctave ? foldOctave(raw) : raw), tol = TOLERANCE[S.difficulty];
       col = d <= tol ? "#22c55e" : d <= tol * 2 ? "#f59e0b" : "#3b82f6"; }
     g.strokeStyle = col; g.beginPath(); g.moveTo(x(a.t), y(ma)); g.lineTo(x(b.t), y(mb)); g.stroke();
   }
@@ -964,6 +1009,9 @@ function renderSettings() {
   $("holdSlider").value = S.holdTime; $("holdVal").textContent = S.holdTime.toFixed(1) + " s";
   $("a4Val").textContent = S.a4 + " Hz";
   $("autoSwitch").classList.toggle("on", S.autoPlay);
+  $("octSwitch").classList.toggle("on", S.anyOctave);
+  const corr = c => Math.round(1200 * Math.log2(c || 1));
+  $("calibStatus").textContent = (S.inCorr !== 1 || S.outCorr !== 1) ? `Calibrated (mic ${corr(S.inCorr) >= 0 ? "+" : ""}${corr(S.inCorr)}¢)` : "Not calibrated";
   $("sensSlider").value = S.sensitivity; $("sensVal").textContent = S.sensitivity + " / 10";
   $("lowVal").textContent = name(S.rangeLow); $("highVal").textContent = name(S.rangeHigh);
 }
@@ -974,6 +1022,7 @@ $("holdSlider").oninput = e => { S.holdTime = +e.target.value; changed(); };
 $("a4Minus").onclick = () => { S.a4 = Math.max(430, S.a4 - 1); changed(); };
 $("a4Plus").onclick = () => { S.a4 = Math.min(450, S.a4 + 1); changed(); };
 $("autoSwitch").onclick = () => { S.autoPlay = !S.autoPlay; changed(); };
+$("octSwitch").onclick = () => { S.anyOctave = !S.anyOctave; changed(); };
 $("sensSlider").oninput = e => { S.sensitivity = +e.target.value; if (audio.detector) audio.detector.gateRMS = gateFor(S.sensitivity); changed(); };
 $("testSound").onclick = () => playTone(69);
 $("lowMinus").onclick = () => { S.rangeLow = Math.max(28, S.rangeLow - 1); changed(true); };
@@ -981,6 +1030,71 @@ $("lowPlus").onclick = () => { S.rangeLow = Math.min(S.rangeHigh - 5, S.rangeLow
 $("highMinus").onclick = () => { S.rangeHigh = Math.max(S.rangeLow + 5, S.rangeHigh - 1); changed(true); };
 $("highPlus").onclick = () => { S.rangeHigh = Math.min(96, S.rangeHigh + 1); changed(true); };
 $("redoRange").onclick = () => openRange(false);
+
+// ---------- Accuracy check & calibration ----------
+// Step A: an external 440 Hz tone tells us how far the MIC reading is off → inCorr.
+// Step B: PitchPal plays its own A4 and measures it (with inCorr applied) → outCorr,
+//         so the reference tone you hear is in tune too.
+const calib = {
+  collecting: false, listenThroughTone: false, samples: [], until: 0, done: null,
+  collect(f, t) {
+    if (f) this.samples.push(f);
+    if (t >= this.until) { this.collecting = false; const d = this.done; this.done = null; d && d(this.samples.slice()); }
+  },
+  measure(seconds) {
+    return new Promise(res => { this.samples = []; this.until = performance.now() / 1000 + seconds; this.done = res; this.collecting = true; });
+  },
+};
+const medianOf = v => { const s = [...v].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const centsBetween = (ref, f) => 1200 * Math.log2(f / ref);
+function renderCalibLive(f) {
+  $("calHz").textContent = f ? f.toFixed(1) + " Hz" : "—";
+  if (f) { const r = NoteMath.reading(f, 440); $("calNote").textContent = `${NoteMath.noteName(r.nearest, S.accidentals)} ${r.cents >= 0 ? "+" : ""}${Math.round(r.cents)}¢`; }
+  else $("calNote").innerHTML = "&nbsp;";
+}
+function renderCalibInfo() {
+  const c = x => { const v = Math.round(1200 * Math.log2(x || 1)); return (v >= 0 ? "+" : "") + v + "¢"; };
+  $("calInfo").innerHTML = `Audio engine: ${audio.ctx ? audio.ctx.sampleRate : "?"} Hz · Mic reports: ${audio.trackRate || "?"} Hz<br>` +
+    `Mic correction: ${c(S.inCorr)} · Reference-tone correction: ${c(S.outCorr)}`;
+}
+$("openCalib").onclick = () => { $("calResult").textContent = ""; renderCalibInfo(); $("calibOverlay").classList.remove("hidden"); };
+$("calClose").onclick = () => { $("calibOverlay").classList.add("hidden"); renderSettings(); };
+$("calReset").onclick = () => { S.inCorr = 1; S.outCorr = 1; saveSettings(); renderCalibInfo(); $("calResult").textContent = "Calibration reset."; };
+$("calMeasure").onclick = async () => {
+  if (!audio.ctx) return;
+  const btn = $("calMeasure"), out = $("calResult");
+  btn.disabled = true;
+  try {
+    // Step A — external 440 Hz, measured without any previous correction
+    out.textContent = "Listening to the 440 Hz tone… keep it playing (3 s)";
+    const oldIn = S.inCorr; S.inCorr = 1;
+    const a = await calib.measure(3);
+    if (a.length < 30) { S.inCorr = oldIn; out.innerHTML = `<span style="color:var(--orange)">Couldn't hear a steady tone. Turn the volume up, hold the phone closer, and try again.</span>`; return; }
+    const medA = medianOf(a), offA = centsBetween(440, medA);
+    const spread = medianOf(a.map(f => Math.abs(centsBetween(medA, f))));
+    if (Math.abs(offA) > 400 || spread > 15) { S.inCorr = oldIn; out.innerHTML = `<span style="color:var(--orange)">That didn't sound like a clean 440 Hz tone (heard ${medA.toFixed(1)} Hz). Check the tone generator is on 440 Hz and try again.</span>`; return; }
+    S.inCorr = 440 / medA;
+
+    // Step B — our own A4, heard through the (now corrected) mic
+    out.textContent = "Mic done. Now checking PitchPal's own reference tone… (stop the PC tone)";
+    await new Promise(r => setTimeout(r, 1800));
+    const oldOut = S.outCorr; S.outCorr = 1;
+    calib.listenThroughTone = true;
+    playTone(69, 2.2);
+    await new Promise(r => setTimeout(r, 500));
+    const b = await calib.measure(1.5);
+    calib.listenThroughTone = false;
+    let outMsg;
+    if (b.length >= 20) {
+      const expected = NoteMath.freqFromMidi(69, S.a4), medB = medianOf(b);
+      const offB = centsBetween(expected, medB);
+      if (Math.abs(offB) <= 400) { S.outCorr = expected / medB; outMsg = `reference tone was ${offB >= 0 ? "+" : ""}${Math.round(offB)}¢`; }
+      else { S.outCorr = oldOut; outMsg = "reference tone couldn't be checked"; }
+    } else { S.outCorr = oldOut; outMsg = "reference tone couldn't be heard (fine if you use headphones)"; }
+    saveSettings(); renderCalibInfo();
+    out.innerHTML = `<span style="color:var(--green)">✓ Calibrated.</span> Your mic was reading ${offA >= 0 ? "+" : ""}${Math.round(offA)}¢; ${outMsg}. Both are now corrected.`;
+  } finally { calib.listenThroughTone = false; btn.disabled = false; }
+};
 
 // ---------- Range setup ----------
 const rangeState = { listening: false, step: "low", low: null, high: null, cand: null, since: 0, progress: 0, first: true };
