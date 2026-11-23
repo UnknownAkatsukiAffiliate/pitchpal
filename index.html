@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PitchPal">
+<meta name="theme-color" content="#0d0f14">
+<title>PitchPal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2322c55e'/%3E%3Cpath d='M58 18v44a14 14 0 1 1-8-12.6V18z' fill='white'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0d0f14; --card:#171a22; --card2:#1f2330; --line:#2a2f3d;
+  --text:#f3f5f9; --muted:#9aa3b5; --accent:#3b82f6;
+  --green:#22c55e; --orange:#f59e0b; --red:#ef4444;
+  --radius:18px;
+  --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f4f5f8; --card:#ffffff; --card2:#eef0f5; --line:#dde1ea; --text:#11141b; --muted:#5f687a; }
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Rounded","Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased; overscroll-behavior:none}
+button{font:inherit; color:inherit; border:0; background:none; cursor:pointer}
+select,input{font:inherit}
+.app{max-width:520px; margin:0 auto; min-height:100dvh; padding:calc(var(--safe-top) + 8px) 14px calc(var(--safe-bottom) + 80px)}
+.hidden{display:none !important}
+
+/* top bar */
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px}
+.pill{display:inline-flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--line);
+  padding:9px 14px; border-radius:999px; font-weight:600; font-size:15px}
+.pill small{color:var(--muted); font-weight:500}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 16px; border-radius:14px;
+  font-weight:700; font-size:17px; background:var(--card2); border:1px solid var(--line); transition:transform .08s, opacity .2s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent); border-color:transparent; color:#fff}
+.btn.green{background:var(--green); border-color:transparent; color:#06240f}
+.btn.small{padding:9px 14px; font-size:15px; border-radius:999px}
+.btn[disabled]{opacity:.4; pointer-events:none}
+
+/* stats */
+.stats{display:grid; grid-template-columns:repeat(4,1fr); background:var(--card); border:1px solid var(--line);
+  border-radius:var(--radius); padding:6px 4px; margin-bottom:8px}
+.stat{text-align:center}
+.stat b{display:block; font-size:19px; font-variant-numeric:tabular-nums; transition:transform .25s}
+.stat b.bump{transform:scale(1.25); color:var(--green)}
+.stat span{font-size:11px; color:var(--muted)}
+
+/* target */
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-bottom:8px}
+.target{display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:10px}
+.eyebrow{font-size:12px; letter-spacing:.08em; font-weight:700; color:var(--muted)}
+.ringwrap{position:relative; width:122px; height:122px}
+.ringwrap svg{position:absolute; inset:0; transform:rotate(-90deg)}
+.ring-bg{stroke:var(--line)} .ring-fg{stroke:var(--green); transition:stroke-dashoffset .1s linear}
+.bignote{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:46px; font-weight:800; letter-spacing:-.02em}
+.bignote.pop{animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(.7); opacity:0} 100%{transform:scale(1); opacity:1}}
+.caption{color:var(--muted); font-size:14px; text-align:center; min-height:18px}
+.piano{width:100%; height:62px; display:block; margin-top:4px}
+
+/* live */
+.live{display:flex; justify-content:space-between; align-items:flex-end; gap:10px; margin:0 2px 6px}
+.live .label{font-size:12px; color:var(--muted)}
+.live .sung{font-size:26px; font-weight:800; min-height:32px}
+.live .sung small{font-size:16px; color:var(--muted); font-weight:600; margin-left:6px; font-variant-numeric:tabular-nums}
+.hint{text-align:right; font-weight:800; font-size:20px}
+.hint small{display:block; font-size:12px; font-weight:500; color:var(--muted)}
+.level{height:4px; background:var(--line); border-radius:4px; overflow:hidden; margin:2px 2px 4px}
+.level i{display:block; height:100%; width:0; background:var(--muted); transition:width .08s}
+.tuner{width:100%; height:96px; display:block}
+.needle{transition:transform .14s cubic-bezier(.3,1.4,.5,1), opacity .2s; transform-origin:150px 140px}
+.graph{width:100%; height:118px; display:block; border-radius:12px; background:var(--card2)}
+.noterow{display:flex; align-items:center; justify-content:center; gap:22px}
+.roundbtn{width:66px; height:66px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  font-size:12px; font-weight:700; background:var(--card2); border:1px solid var(--line); transition:transform .08s}
+.roundbtn:active{transform:scale(.94)}
+.roundbtn .ic{font-size:22px; line-height:1}
+.roundbtn.primary{background:var(--accent); color:#fff; border-color:transparent}
+.actions{display:grid; grid-template-columns:1.4fr 1fr; gap:10px; margin-top:8px}
+
+.tip{display:flex; gap:10px; align-items:flex-start; background:rgba(59,130,246,.14); border:1px solid rgba(59,130,246,.35);
+  border-radius:14px; padding:8px 12px; font-size:13px; margin-bottom:8px}
+.tip button{margin-left:auto; color:var(--muted); font-size:18px; line-height:1}
+
+/* tabs */
+.tabs{position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:center; gap:4px;
+  padding:8px 12px calc(var(--safe-bottom) + 8px); background:color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-top:1px solid var(--line); z-index:20}
+.tabs button{flex:1; max-width:160px; padding:8px; border-radius:12px; color:var(--muted); font-size:12px; font-weight:600;
+  display:flex; flex-direction:column; align-items:center; gap:3px}
+.tabs button svg{width:24px; height:24px}
+.tabs button.on{color:var(--accent)}
+
+/* sheets & overlays */
+.overlay{position:fixed; inset:0; z-index:40; background:var(--bg); overflow:auto;
+  padding:calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 24px)}
+.overlay .inner{max-width:480px; margin:0 auto}
+.sheet-back{position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.5); display:flex; align-items:flex-end; justify-content:center}
+.sheet{background:var(--card); width:100%; max-width:520px; border-radius:22px 22px 0 0; padding:18px 18px calc(var(--safe-bottom) + 18px);
+  animation:up .22s ease}
+@keyframes up{from{transform:translateY(40px); opacity:0}}
+.sheet h3{margin:0 0 12px}
+h1{font-size:30px; margin:8px 0 8px} h2{font-size:22px; margin:0 0 10px}
+p.muted,.muted{color:var(--muted)}
+.row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.seg{display:flex; background:var(--card2); border-radius:12px; padding:3px; gap:3px}
+.seg button{flex:1; padding:9px 6px; border-radius:9px; font-weight:600; font-size:14px; color:var(--muted)}
+.seg button.on{background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.25)}
+select{background:var(--card2); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:9px 10px; font-size:15px}
+input[type=range]{width:100%; accent-color:var(--accent)}
+.stepper{display:flex; align-items:center; gap:10px}
+.stepper button{width:36px; height:36px; border-radius:10px; background:var(--card2); border:1px solid var(--line); font-size:20px; font-weight:700}
+.stepper b{min-width:64px; text-align:center; font-variant-numeric:tabular-nums}
+.switch{position:relative; width:52px; height:31px; border-radius:31px; background:var(--line); transition:background .2s}
+.switch::after{content:""; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; transition:transform .2s}
+.switch.on{background:var(--green)} .switch.on::after{transform:translateX(21px)}
+.presets{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.preset{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; text-align:left}
+.preset b{display:block; font-size:17px} .preset span{color:var(--muted); font-size:14px}
+.success{position:fixed; inset:0; z-index:35; display:flex; align-items:center; justify-content:center; pointer-events:none}
+.success .box{background:color-mix(in srgb, var(--card) 88%, transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--line); border-radius:28px; padding:28px 36px; text-align:center; animation:hit .45s cubic-bezier(.3,1.6,.5,1)}
+.success svg{width:96px; height:96px}
+@keyframes hit{from{transform:scale(.5); opacity:0}}
+.histrow{padding:12px 0; border-bottom:1px solid var(--line)}
+.histrow:last-child{border-bottom:0}
+.histrow .top{display:flex; justify-content:space-between; font-weight:700}
+.histrow .sub{color:var(--muted); font-size:13px; margin-top:3px}
+canvas.chart{width:100%; height:200px; display:block}
+.center{text-align:center}
+.bigicon{width:84px; height:84px; margin:10px auto; display:block}
+</style>
+</head>
+<body>
+
+<!-- ============ START (needs a tap so iOS allows audio + mic) ============ -->
+<div id="startOverlay" class="overlay">
+  <div class="inner center" style="padding-top:8vh">
+    <svg class="bigicon" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#22c55e"/><path d="M58 18v44a14 14 0 1 1-8-12.6V18z" fill="#fff"/></svg>
+    <h1>PitchPal</h1>
+    <p class="muted" style="font-size:17px">Hear a note. Sing it. See how close you are.</p>
+    <button id="startBtn" class="btn green" style="width:100%; margin-top:28px; font-size:19px; padding:18px">Start singing</button>
+    <p class="muted" style="font-size:14px; margin-top:18px">PitchPal listens through your microphone. Everything is analysed on your phone; nothing is recorded or sent anywhere.</p>
+    <p class="muted" style="font-size:14px">🎧 Headphones give the best results.</p>
+    <p id="startError" class="hidden" style="color:var(--orange); font-size:15px; margin-top:16px"></p>
+  </div>
+</div>
+
+<!-- ============ RANGE SETUP ============ -->
+<div id="rangeOverlay" class="overlay hidden">
+  <div class="inner">
+    <div id="rangeChoose">
+      <h1>Your voice range</h1>
+      <p class="muted">PitchPal only picks notes you can comfortably sing. Let it measure your range, or pick your voice type.</p>
+      <button id="findRangeBtn" class="btn primary" style="width:100%; margin:10px 0 22px">🎤 Find my range by singing</button>
+      <div class="eyebrow" style="margin-bottom:10px">OR CHOOSE A VOICE TYPE</div>
+      <div class="presets" id="presetGrid"></div>
+      <p class="muted" style="font-size:13px; margin-top:16px">Not sure? Most men are Baritone, most women Mezzo. You can change this later in Settings.</p>
+      <button id="rangeCancel" class="btn" style="width:100%; margin-top:8px">Cancel</button>
+    </div>
+    <div id="rangeListen" class="hidden center">
+      <div class="eyebrow" id="rlStep" style="margin-top:10px">STEP 1 OF 2</div>
+      <h2 id="rlTitle" style="margin-top:8px">Sing your LOWEST comfortable note</h2>
+      <p class="muted" id="rlSub"></p>
+      <div class="ringwrap" style="margin:22px auto; width:200px; height:200px">
+        <svg viewBox="0 0 100 100"><circle class="ring-bg" cx="50" cy="50" r="44" fill="none" stroke-width="7"/>
+          <circle id="rlRing" class="ring-fg" cx="50" cy="50" r="44" fill="none" stroke-width="7" stroke-linecap="round" stroke-dasharray="276.46" stroke-dashoffset="276.46"/></svg>
+        <div class="bignote" id="rlNote" style="font-size:54px">…</div>
+      </div>
+      <p class="muted" id="rlState">Listening…</p>
+      <p id="rlLow" class="muted"></p>
+      <div style="display:grid; grid-template-columns:1fr 1.4fr; gap:10px; margin-top:16px">
+        <button class="btn" id="rlBack">Back</button>
+        <button class="btn primary" id="rlUse" disabled>Use this note</button>
+      </div>
+    </div>
+    <div id="rangeReview" class="hidden center">
+      <svg class="bigicon" viewBox="0 0 24 24"><path fill="#22c55e" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4z"/></svg>
+      <div class="eyebrow">YOUR RANGE</div>
+      <div id="rrRange" style="font-size:44px; font-weight:800; margin:6px 0"></div>
+      <p class="muted" id="rrSpan"></p>
+      <p id="rrWarn" class="hidden" style="color:var(--orange)">That's a small range. You need at least 5 semitones, so try again and stretch a little further.</p>
+      <button class="btn green" id="rrSave" style="width:100%; margin-top:14px">Save range</button>
+      <button class="btn" id="rrRetry" style="width:100%; margin-top:10px">Try again</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ============ PRACTICE ============ -->
+  <section id="tabPractice">
+    <div class="topbar">
+      <button class="pill" id="modeBtn"><span id="modeIcon">🎲</span><span id="modeLabel">Random notes</span><small>▾</small></button>
+      <button class="btn small" id="endBtn" disabled>End</button>
+    </div>
+    <div id="tip" class="tip hidden"><span>🎧</span><span>Use headphones so PitchPal hears only you, not the reference note.</span><button id="tipClose" aria-label="Dismiss">×</button></div>
+    <div class="stats">
+      <div class="stat"><b id="stScore">0</b><span>Score</span></div>
+      <div class="stat"><b id="stStreak">0</b><span>Streak</span></div>
+      <div class="stat"><b id="stAcc">–</b><span>Accuracy</span></div>
+      <div class="stat"><b id="stAvg">–</b><span>Avg off</span></div>
+    </div>
+    <div class="card target">
+      <div class="eyebrow">SING THIS NOTE</div>
+      <div class="noterow">
+        <button class="roundbtn primary" id="playBtn" aria-label="Play the target note"><span class="ic">🔊</span><span id="playLbl">Play</span></button>
+        <div class="ringwrap">
+          <svg viewBox="0 0 100 100"><circle class="ring-bg" cx="50" cy="50" r="45" fill="none" stroke-width="6"/>
+            <circle id="holdRing" class="ring-fg" cx="50" cy="50" r="45" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="282.74" stroke-dashoffset="282.74"/></svg>
+          <div class="bignote" id="targetNote">–</div>
+        </div>
+        <button class="roundbtn" id="skipBtn" aria-label="Skip this note"><span class="ic">⏭</span><span>Skip</span></button>
+      </div>
+      <div class="caption" id="caption"></div>
+      <svg class="piano" id="piano" viewBox="0 0 300 84" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="card">
+      <div class="live">
+        <div><div class="label">You're singing</div><div class="sung" id="sung">—</div></div>
+        <div class="hint" id="hint"></div>
+      </div>
+      <div class="level"><i id="levelBar"></i></div>
+      <svg class="tuner" id="tuner" viewBox="0 14 300 136"></svg>
+    </div>
+    <canvas class="graph" id="graph"></canvas>
+  </section>
+
+  <!-- ============ HISTORY ============ -->
+  <section id="tabHistory" class="hidden">
+    <div class="topbar"><h2 style="margin:0">History</h2><button class="btn small" id="clearHist">Clear</button></div>
+    <div id="histEmpty" class="card center muted" style="padding:40px 16px">No sessions yet.<br>Practise a few notes, then tap <b>End</b> to save a session.</div>
+    <div id="histBody">
+      <div class="card"><div class="eyebrow" style="margin-bottom:8px">ACCURACY OVER TIME</div><canvas class="chart" id="histChart"></canvas></div>
+      <div class="card" id="histTotals"></div>
+      <div class="card" id="histList"></div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section id="tabSettings" class="hidden">
+    <h2 style="margin:6px 0 12px">Settings</h2>
+    <div class="card">
+      <div class="eyebrow">DIFFICULTY</div>
+      <div class="seg" id="segDiff" style="margin-top:10px">
+        <button data-v="easy">Easy ±50¢</button><button data-v="medium">Medium ±25¢</button><button data-v="hard">Hard ±10¢</button>
+      </div>
+      <p class="muted" style="font-size:13px; margin:8px 0 0">100 cents (¢) = 1 semitone = one piano key.</p>
+    </div>
+    <div class="card">
+      <div class="row" style="padding-top:0"><span>Hold time</span><b id="holdVal"></b></div>
+      <input type="range" id="holdSlider" min="0.3" max="1.5" step="0.1">
+      <p class="muted" style="font-size:13px; margin:6px 0 0">How long you must stay in tune for a hit.</p>
+    </div>
+    <div class="card">
+      <div class="row" style="padding-top:0"><span>Reference A4</span>
+        <div class="stepper"><button id="a4Minus">−</button><b id="a4Val"></b><button id="a4Plus">+</button></div></div>
+      <div class="row"><span>Note names</span>
+        <div class="seg" id="segAcc" style="width:190px"><button data-v="sharps">C♯ sharps</button><button data-v="flats">D♭ flats</button></div></div>
+      <div class="row"><span>Auto-play each new note</span><button class="switch" id="autoSwitch" aria-label="Auto-play"></button></div>
+      <div class="row" style="padding-bottom:0"><button class="btn small" id="testSound">🔊 Test sound</button></div>
+    </div>
+    <div class="card">
+      <div class="row" style="padding-top:0"><span>Mic sensitivity</span><b id="sensVal"></b></div>
+      <input type="range" id="sensSlider" min="1" max="10" step="1">
+      <p class="muted" style="font-size:13px; margin:6px 0 0">Turn it up if PitchPal misses quiet singing; down if it reacts to background noise.</p>
+    </div>
+    <div class="card">
+      <div class="eyebrow">VOICE RANGE</div>
+      <div class="row"><span>Lowest</span><div class="stepper"><button id="lowMinus">−</button><b id="lowVal"></b><button id="lowPlus">+</button></div></div>
+      <div class="row"><span>Highest</span><div class="stepper"><button id="highMinus">−</button><b id="highVal"></b><button id="highPlus">+</button></div></div>
+      <button class="btn" id="redoRange" style="width:100%; margin-top:8px">Set up range again</button>
+    </div>
+    <div class="card muted" style="font-size:14px">🔒 Everything happens on your phone. No recordings, no accounts, no analytics.<br><br>🎧 Headphones give the most accurate results.</div>
+  </section>
+</div>
+
+<nav class="tabs">
+  <button data-tab="Practice" class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11z"/></svg>Practice</button>
+  <button data-tab="History"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h2v16h16v2H3zm4 12 4-5 3 3 5-7 1.6 1.2-6.4 9-3-3-2.6 3.3z"/></svg>History</button>
+  <button data-tab="Settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.9a7 7 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7 7 0 0 0 1.7 1L11 21h4l.4-2.9a7 7 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>Settings</button>
+</nav>
+
+<!-- mode sheet -->
+<div id="modeSheet" class="sheet-back hidden">
+  <div class="sheet">
+    <h3>Exercise</h3>
+    <div class="seg" id="segMode">
+      <button data-v="random">🎲 Random</button><button data-v="scale">🪜 Scale</button><button data-v="interval">↕️ Intervals</button>
+    </div>
+    <div id="scaleOpts" class="row"><span>Scale</span><select id="rootSelect"></select></div>
+    <div id="intOpts">
+      <div class="row"><span>Interval</span><select id="intSelect"></select></div>
+      <div class="row"><span>Direction</span><select id="dirSelect">
+        <option value="up">Up</option><option value="down">Down</option><option value="either">Up or down</option></select></div>
+    </div>
+    <p class="muted" id="modeHelp" style="font-size:14px"></p>
+    <button class="btn primary" id="modeDone" style="width:100%; margin-top:6px">Done</button>
+  </div>
+</div>
+
+<!-- end sheet -->
+<div id="endSheet" class="sheet-back hidden">
+  <div class="sheet center">
+    <h3>End this session?</h3>
+    <p class="muted" id="endSummary"></p>
+    <button class="btn green" id="endConfirm" style="width:100%">Save to history &amp; start fresh</button>
+    <button class="btn" id="endCancel" style="width:100%; margin-top:10px">Keep practising</button>
+  </div>
+</div>
+
+<div id="success" class="success hidden"><div class="box">
+  <svg viewBox="0 0 24 24"><path fill="#22c55e" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4z"/></svg>
+  <div style="font-size:26px; font-weight:800; margin-top:6px" id="successText">Nailed it!</div>
+  <div class="muted" id="successSub"></div>
+</div></div>
+
+<script>
+"use strict";
+// =====================================================================
+// === CORE START === (pure logic — no DOM; unit-tested in Node)
+// =====================================================================
+
+// ---------- Note maths ----------
+// MIDI: C4 = 60, A4 = 69, 1 step = 1 semitone. 100 cents = 1 semitone.
+const SHARPS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const FLATS  = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+const NoteMath = {
+  midiFromFreq: (f, a4 = 440) => 69 + 12 * Math.log2(f / a4),
+  freqFromMidi: (m, a4 = 440) => a4 * Math.pow(2, (m - 69) / 12),
+  pc: m => ((m % 12) + 12) % 12,
+  octave: m => Math.floor(m / 12) - 1,
+  pitchName: (m, style = "sharps") => (style === "flats" ? FLATS : SHARPS)[((m % 12) + 12) % 12],
+  noteName(m, style = "sharps") { return this.pitchName(m, style) + this.octave(m); },
+  isBlack: m => [1,3,6,8,10].includes(((m % 12) + 12) % 12),
+  reading(f, a4 = 440) {
+    const exact = this.midiFromFreq(f, a4), nearest = Math.round(exact);
+    return { exact, nearest, cents: (exact - nearest) * 100 };
+  },
+};
+
+// ---------- YIN pitch detector ----------
+// Finds the lag (tau) at which the signal best matches a shifted copy of itself.
+// Steps: noise gate → difference function → cumulative-mean normalisation →
+// FIRST dip under threshold (prevents octave-too-low errors) → parabolic interpolation.
+function createDetector(sampleRate, opts = {}) {
+  const minF = opts.minFrequency ?? 60, maxF = opts.maxFrequency ?? 1100;
+  const threshold = opts.threshold ?? 0.15, minConfidence = opts.minConfidence ?? 0.8;
+  const maxLag = Math.ceil(sampleRate / minF) + 1;
+  const minLag = Math.max(2, Math.floor(sampleRate / maxF) - 1);
+  const lagCount = maxLag + 1;
+  let prefix = null, diff = new Float64Array(lagCount + 1), cmnd = new Float64Array(lagCount + 1);
+
+  const detector = {
+    gateRMS: opts.gateRMS ?? 0.01,
+    minimumSize: 2 * maxLag + 2,
+    lastRMS: 0,
+    detect(x) {
+      const n = x.length;
+      if (n < detector.minimumSize) return null;
+      if (!prefix || prefix.length !== n + 1) prefix = new Float64Array(n + 1);
+      for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + x[i] * x[i];
+      const rms = Math.sqrt(prefix[n] / n);
+      detector.lastRMS = rms;
+      if (rms < detector.gateRMS) return null;
+
+      const W = n - lagCount;                 // comparison window length
+      const e0 = prefix[W];
+      for (let tau = 1; tau <= lagCount; tau++) {
+        let r = 0;
+        for (let j = 0; j < W; j++) r += x[j] * x[j + tau];
+        const eTau = prefix[tau + W] - prefix[tau];
+        diff[tau] = Math.max(0, e0 + eTau - 2 * r);
+      }
+      cmnd[0] = 1;
+      let running = 0;
+      for (let tau = 1; tau <= lagCount; tau++) {
+        running += diff[tau];
+        cmnd[tau] = running > 0 ? diff[tau] * tau / running : 1;
+      }
+      let best = -1;
+      for (let tau = minLag; tau < maxLag; tau++) {
+        if (cmnd[tau] < threshold) {
+          while (tau + 1 < maxLag && cmnd[tau + 1] < cmnd[tau]) tau++;
+          best = tau; break;
+        }
+      }
+      if (best === -1) {
+        best = minLag;
+        for (let t = minLag; t < maxLag; t++) if (cmnd[t] < cmnd[best]) best = t;
+      }
+      const confidence = 1 - cmnd[best];
+      if (confidence < minConfidence) return null;
+      const a = cmnd[best - 1], b = cmnd[best], c = cmnd[best + 1];
+      const den = a - 2 * b + c;
+      let shift = Math.abs(den) > 1e-12 ? 0.5 * (a - c) / den : 0;
+      shift = Math.min(1, Math.max(-1, shift));
+      const frequency = sampleRate / (best + shift);
+      if (frequency < minF * 0.97 || frequency > maxF * 1.03) return null;
+      return { frequency, confidence, rms };
+    },
+  };
+  return detector;
+}
+
+// ---------- Smoother: median filter + octave-error guard + dropout hold ----------
+function createSmoother({ medianLength = 5, octaveConfirmFrames = 4, maxMissingFrames = 4 } = {}) {
+  let history = [], pending = 0, missing = 0, last = null;
+  const median = v => { const s = [...v].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  return {
+    reset() { history = []; pending = 0; missing = 0; last = null; },
+    add(freq) {
+      if (!freq || freq <= 0) {
+        missing++;
+        if (missing > maxMissingFrames) { this.reset(); return null; }
+        return last;
+      }
+      missing = 0;
+      let v = NoteMath.midiFromFreq(freq);
+      if (history.length) {
+        const jump = v - median(history), oct = Math.round(jump / 12);
+        if (oct !== 0 && Math.abs(jump - oct * 12) < 1) {
+          pending++;
+          if (pending >= octaveConfirmFrames) { history = []; pending = 0; }
+          else v -= oct * 12;                       // fold a one-off octave glitch back
+        } else pending = 0;
+      }
+      history.push(v);
+      if (history.length > medianLength) history.shift();
+      last = NoteMath.freqFromMidi(median(history));
+      return last;
+    },
+  };
+}
+
+// ---------- Exercise helpers ----------
+const INTERVAL_NAMES = ["Unison","Minor 2nd","Major 2nd","Minor 3rd","Major 3rd","Perfect 4th","Tritone",
+  "Perfect 5th","Minor 6th","Major 6th","Minor 7th","Major 7th","Octave"];
+const VOICE_PRESETS = [
+  { name: "Bass", low: 40, high: 60 }, { name: "Baritone", low: 43, high: 64 },
+  { name: "Tenor", low: 48, high: 67 }, { name: "Alto", low: 53, high: 72 },
+  { name: "Mezzo", low: 57, high: 77 }, { name: "Soprano", low: 60, high: 81 },
+];
+const TOLERANCE = { easy: 50, medium: 25, hard: 10 };
+
+// Major scale from the lowest root in range, up and back down: C D E F G A B C B A G F E D
+function scaleSequence(root, low, high) {
+  const steps = [0, 2, 4, 5, 7, 9, 11, 12];
+  let start = low + (((root - low) % 12) + 12) % 12;
+  let notes = steps.map(s => start + s).filter(m => m <= high);
+  if (notes.length < 4) { start -= 12; notes = steps.map(s => start + s).filter(m => m >= low && m <= high); }
+  if (!notes.length) return [low];
+  const down = notes.slice().reverse().slice(1, -1);
+  return notes.concat(down);
+}
+
+function intervalPair(size, direction, low, high, rand = Math.random) {
+  const up = direction === "up" ? true : direction === "down" ? false : rand() < 0.5;
+  const step = up ? size : -size;
+  const cands = [];
+  for (let m = low; m <= high; m++) if (m + step >= low && m + step <= high) cands.push(m);
+  if (!cands.length) return up ? [low, low + size] : [high, high - size];
+  const first = cands[Math.floor(rand() * cands.length)];
+  return [first, first + step];
+}
+
+// The game: picks targets, checks hits, keeps score. Fed with (frequency|null, time).
+function createExercise(getSettings, hooks = {}) {
+  const GRACE = 0.15;
+  const ex = {
+    target: null, caption: "", hasPlayed: false,
+    centsOff: null, holdProgress: 0, celebrating: false, active: false,
+    score: 0, streak: 0, bestStreak: 0, hits: 0, attempts: 0, hitAverages: [], sessionStart: Date.now(),
+    _holdStart: null, _lastInTune: 0, _holdCents: [], _scale: [], _scaleIdx: 0, _secondNote: null, _onSecond: false,
+  };
+  const range = () => { const s = getSettings(); return [Math.min(s.rangeLow, s.rangeHigh), Math.max(s.rangeLow, s.rangeHigh)]; };
+  const resetHold = () => { ex._holdStart = null; ex._holdCents = []; ex.holdProgress = 0; };
+
+  ex.accuracy = () => ex.attempts ? ex.hits / ex.attempts : null;
+  ex.avgCents = () => ex.hitAverages.length ? ex.hitAverages.reduce((p, q) => p + q, 0) / ex.hitAverages.length : null;
+
+  ex.restart = () => {
+    const s = getSettings(), [lo, hi] = range();
+    ex._onSecond = false; ex._secondNote = null;
+    ex._scale = scaleSequence(s.scaleRoot, lo, hi); ex._scaleIdx = 0;
+    ex.celebrating = false;
+    next();
+  };
+
+  function next() {
+    const s = getSettings(), [lo, hi] = range();
+    let autoPlay = true, t;
+    if (s.mode === "scale") {
+      if (!ex._scale.length) ex._scale = scaleSequence(s.scaleRoot, lo, hi);
+      if (ex._scaleIdx >= ex._scale.length) ex._scaleIdx = 0;
+      t = ex._scale[ex._scaleIdx];
+      const up = ex._scaleIdx <= ex._scale.length / 2;
+      ex.caption = `${NoteMath.pitchName(s.scaleRoot, s.accidentals)} major scale · going ${up ? "up ↑" : "down ↓"}`;
+    } else if (s.mode === "interval") {
+      const size = s.intervalSemitones;
+      if (ex._onSecond && ex._secondNote != null && ex.target != null) {
+        const first = ex.target; t = ex._secondNote;
+        ex.caption = `Now sing a ${INTERVAL_NAMES[size]} ${t > first ? "up" : "down"} from ${NoteMath.noteName(first, s.accidentals)}`;
+        autoPlay = false;
+      } else {
+        const [a, b] = intervalPair(size, s.intervalDirection, lo, hi);
+        ex._secondNote = b; ex._onSecond = false; t = a;
+        ex.caption = `Starting note · then a ${INTERVAL_NAMES[size]}`;
+      }
+    } else {
+      t = lo + Math.floor(Math.random() * (hi - lo + 1));
+      if (hi > lo) while (t === ex.target) t = lo + Math.floor(Math.random() * (hi - lo + 1));
+      ex.caption = "Random note";
+    }
+    ex.target = t; ex.hasPlayed = false; ex.centsOff = null; resetHold();
+    hooks.onNewTarget && hooks.onNewTarget(t, autoPlay);
+  }
+
+  function advance(afterHit) {
+    const s = getSettings();
+    if (s.mode === "scale") ex._scaleIdx++;
+    else if (s.mode === "interval") ex._onSecond = afterHit && !ex._onSecond;
+    next();
+  }
+
+  ex.skip = () => {
+    if (ex.target == null || ex.celebrating) return;
+    ex.attempts++; ex.streak = 0; advance(false);
+  };
+
+  ex.finishCelebration = () => { if (ex.celebrating) { ex.celebrating = false; advance(true); } };
+
+  ex.handle = (freq, time) => {
+    if (!ex.active || ex.celebrating || ex.target == null) return;
+    const s = getSettings();
+    if (!freq) {
+      ex.centsOff = null;
+      if (time - ex._lastInTune > GRACE) resetHold();
+      return;
+    }
+    const cents = (NoteMath.midiFromFreq(freq, s.a4) - ex.target) * 100;
+    ex.centsOff = cents;
+    if (Math.abs(cents) <= TOLERANCE[s.difficulty]) {
+      if (ex._holdStart == null) { ex._holdStart = time; ex._holdCents = []; }
+      ex._lastInTune = time;
+      ex._holdCents.push(Math.abs(cents));
+      ex.holdProgress = Math.min(1, (time - ex._holdStart) / s.holdTime);
+      if (ex.holdProgress >= 1) hit();
+    } else if (time - ex._lastInTune > GRACE) {
+      resetHold();
+    }
+  };
+
+  function hit() {
+    ex.hits++; ex.attempts++; ex.streak++;
+    ex.bestStreak = Math.max(ex.bestStreak, ex.streak);
+    ex.score += 10 + 2 * Math.min(ex.streak - 1, 5);
+    if (ex._holdCents.length) ex.hitAverages.push(ex._holdCents.reduce((p, q) => p + q, 0) / ex._holdCents.length);
+    ex.celebrating = true; ex.centsOff = null;
+    hooks.onHit && hooks.onHit();
+  }
+
+  ex.finishSession = () => {
+    const s = getSettings();
+    const rec = ex.attempts ? {
+      id: Date.now().toString(36), date: ex.sessionStart, duration: (Date.now() - ex.sessionStart) / 1000,
+      mode: s.mode, difficulty: s.difficulty, score: ex.score, hits: ex.hits, attempts: ex.attempts,
+      bestStreak: ex.bestStreak, avgCents: ex.avgCents(),
+    } : null;
+    Object.assign(ex, { score: 0, streak: 0, bestStreak: 0, hits: 0, attempts: 0, hitAverages: [], sessionStart: Date.now() });
+    return rec;
+  };
+  return ex;
+}
+// === CORE END ===
+
+// =====================================================================
+// App: storage, audio, UI
+// =====================================================================
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("pitchpal." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("pitchpal." + k, JSON.stringify(v)); } catch {} },
+};
+const DEFAULTS = { difficulty: "medium", holdTime: 0.6, a4: 440, accidentals: "sharps", autoPlay: true,
+  rangeLow: 48, rangeHigh: 67, hasRange: false, mode: "random", scaleRoot: 0, intervalSemitones: 7,
+  intervalDirection: "up", tipDismissed: false, sensitivity: 6 };
+const S = Object.assign({}, DEFAULTS, store.get("settings", {}));
+const saveSettings = () => store.set("settings", S);
+let sessions = store.get("sessions", []);
+
+// ---------- Audio ----------
+const audio = { ctx: null, analyser: null, buf: null, detector: null, smoother: createSmoother(),
+  busyUntil: 0, freq: null, history: [], running: false, lastAnalysis: 0 };
+
+// Sensitivity 1..10 → noise-gate RMS (higher sensitivity = lower gate)
+const gateFor = s => 0.03 * Math.pow(0.65, s - 1);
+
+async function startAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  audio.ctx = new AC();
+  await audio.ctx.resume();
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  });
+  const src = audio.ctx.createMediaStreamSource(stream);
+  audio.analyser = audio.ctx.createAnalyser();
+  audio.analyser.fftSize = 2048;
+  audio.analyser.smoothingTimeConstant = 0;
+  src.connect(audio.analyser);
+  audio.buf = new Float32Array(audio.analyser.fftSize);
+  audio.detector = createDetector(audio.ctx.sampleRate, { gateRMS: gateFor(S.sensitivity) });
+  audio.stream = stream;
+  audio.running = true;
+  requestAnimationFrame(loop);
+}
+
+// Reference tone: sine + two soft, fading overtones with smooth attack & release.
+function playTone(midi, duration = 1.0) {
+  if (!audio.ctx) return;
+  const ctx = audio.ctx, t0 = ctx.currentTime + 0.02, f = NoteMath.freqFromMidi(midi, S.a4);
+  const release = 0.35;
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0, t0);
+  master.gain.linearRampToValueAtTime(0.32, t0 + 0.02);
+  master.gain.setTargetAtTime(0.24, t0 + 0.02, 0.35);
+  master.gain.setTargetAtTime(0, t0 + duration, release / 4);
+  master.connect(ctx.destination);
+  [[1, 1], [2, 0.35], [3, 0.12]].forEach(([mult, lvl]) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = f * mult;
+    g.gain.setValueAtTime(lvl / 1.47, t0);
+    if (mult > 1) g.gain.setTargetAtTime(0, t0, 0.45 / mult);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0 + duration + release + 0.1);
+  });
+  // Don't listen to our own tone (plus a short tail for room echo).
+  audio.busyUntil = Math.max(audio.busyUntil, t0 + duration + release + 0.2);
+  ex.hasPlayed = true; renderPlayBtn();
+}
+const toneBusy = () => audio.ctx && audio.ctx.currentTime < audio.busyUntil;
+
+// ---------- Exercise wiring ----------
+const ex = createExercise(() => S, {
+  onNewTarget(midi, autoPlay) {
+    renderTarget(true);
+    if (autoPlay && S.autoPlay) setTimeout(() => playTone(midi), 250);
+  },
+  onHit() {
+    showSuccess();
+    renderStats(true);
+    try { navigator.vibrate && navigator.vibrate([30, 40, 30]); } catch {}
+    setTimeout(() => { $("success").classList.add("hidden"); ex.finishCelebration(); renderStats(); }, 950);
+  },
+});
+
+// ---------- Main loop: analyse ~40×/s, draw every frame ----------
+function loop(now) {
+  if (!audio.running) return;
+  const t = now / 1000;
+  if (t - audio.lastAnalysis >= 0.024) {
+    audio.lastAnalysis = t;
+    audio.analyser.getFloatTimeDomainData(audio.buf);
+    let f = null;
+    if (toneBusy()) { audio.smoother.reset(); }
+    else { const est = audio.detector.detect(audio.buf); f = audio.smoother.add(est ? est.frequency : null); }
+    audio.freq = f;
+    if (f) audio.history.push({ t, f });
+    while (audio.history.length && audio.history[0].t < t - 6) audio.history.shift();
+    ex.handle(f, t);
+    if (rangeState.listening) rangeListen(f, t);
+    renderLive();
+  }
+  drawGraph(t);
+  requestAnimationFrame(loop);
+}
+
+// =====================================================================
+// UI rendering
+// =====================================================================
+const name = m => NoteMath.noteName(m, S.accidentals);
+const MODE_META = { random: ["🎲", "Random notes"], scale: ["🪜", "Major scale"], interval: ["↕️", "Interval jumps"] };
+
+function renderTarget(animate) {
+  const el = $("targetNote");
+  el.textContent = ex.target == null ? "–" : name(ex.target);
+  if (animate) { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+  $("caption").textContent = ex.caption;
+  renderPiano(); renderPlayBtn();
+}
+function renderPlayBtn() { $("playLbl").textContent = ex.hasPlayed ? "Again" : "Play"; }
+
+function renderStats(bump) {
+  $("stScore").textContent = ex.score;
+  $("stStreak").textContent = ex.streak;
+  const acc = ex.accuracy(), avg = ex.avgCents();
+  $("stAcc").textContent = acc == null ? "–" : Math.round(acc * 100) + "%";
+  $("stAvg").textContent = avg == null ? "–" : Math.round(avg) + "¢";
+  $("endBtn").disabled = ex.attempts === 0;
+  if (bump) { const b = $("stScore"); b.classList.add("bump"); setTimeout(() => b.classList.remove("bump"), 300); }
+}
+
+const colorFor = c => { const d = Math.abs(c), tol = TOLERANCE[S.difficulty];
+  return d <= tol ? "var(--green)" : d <= tol * 2 ? "var(--orange)" : "var(--red)"; };
+
+let lastSungMidi = null;
+function renderLive() {
+  // input level bar
+  const rms = audio.detector ? audio.detector.lastRMS : 0;
+  $("levelBar").style.width = Math.min(100, Math.sqrt(rms / 0.2) * 100) + "%";
+  $("levelBar").style.background = rms >= audio.detector.gateRMS ? "var(--green)" : "var(--muted)";
+
+  const sungEl = $("sung");
+  let sungMidi = null;
+  if (toneBusy()) sungEl.innerHTML = '<span class="muted" style="font-size:20px">Listening paused…</span>';
+  else if (audio.freq) {
+    const r = NoteMath.reading(audio.freq, S.a4); sungMidi = r.nearest;
+    sungEl.innerHTML = `${name(r.nearest)}<small>${r.cents >= 0 ? "+" : ""}${Math.round(r.cents)}¢</small>`;
+  } else sungEl.innerHTML = '<span class="muted">—</span>';
+  if (sungMidi !== lastSungMidi) { lastSungMidi = sungMidi; renderPiano(); }
+
+  const c = ex.centsOff, hint = $("hint"), tol = TOLERANCE[S.difficulty];
+  if (c == null) hint.innerHTML = "";
+  else if (Math.abs(c) <= tol) hint.innerHTML = `<span style="color:var(--green)">✓ Hold it!</span>`;
+  else {
+    const semis = Math.round(Math.abs(c) / 100);
+    hint.innerHTML = `<span style="color:${colorFor(c)}">${c < 0 ? "↑ Go higher" : "↓ Go lower"}</span>` +
+      (semis >= 1 ? `<small>about ${semis} semitone${semis === 1 ? "" : "s"}</small>` : "");
+  }
+  const ring = $("holdRing");
+  ring.style.strokeDashoffset = 282.74 * (1 - ex.holdProgress);
+  renderTunerNeedle(c);
+}
+
+// ---------- Piano (two octaves around the target) ----------
+function renderPiano() {
+  const svg = $("piano"), target = ex.target, sung = lastSungMidi;
+  const anchor = (target ?? 60) - 7, first = anchor - NoteMath.pc(anchor), last = first + 24;
+  const whites = []; for (let m = first; m <= last; m++) if (!NoteMath.isBlack(m)) whites.push(m);
+  const W = 300 / whites.length, H = 84, idx = {};
+  whites.forEach((m, i) => idx[m] = i);
+  const fill = (m, black) => m === target && m === sung ? "#22c55e" : m === target ? "#3b82f6" : m === sung ? "#f59e0b" : black ? "#16181d" : "#f4f5f7";
+  let out = "";
+  for (const m of whites) {
+    const x = idx[m] * W;
+    out += `<rect x="${x + 0.6}" y="0" width="${W - 1.2}" height="${H}" rx="3" fill="${fill(m, false)}" stroke="#9aa3b5" stroke-opacity=".5" stroke-width=".6"/>`;
+    if (NoteMath.pc(m) === 0 || m === target)
+      out += `<text x="${x + W / 2}" y="${H - 7}" text-anchor="middle" font-size="7.5" font-weight="${m === target ? 800 : 500}" fill="${m === target ? "#fff" : "#555"}">${name(m)}</text>`;
+  }
+  for (let m = first; m <= last; m++) if (NoteMath.isBlack(m) && idx[m - 1] != null) {
+    const bw = W * 0.6, x = (idx[m - 1] + 1) * W - bw / 2;
+    out += `<rect x="${x}" y="0" width="${bw}" height="${H * 0.6}" rx="2" fill="${fill(m, true)}"/>`;
+  }
+  svg.innerHTML = out;
+}
+
+// ---------- Tuner gauge (−50…+50 cents vs. the target) ----------
+const PIV = { x: 150, y: 140 }, RAD = 118;
+function buildTuner() {
+  const svg = $("tuner"), tol = TOLERANCE[S.difficulty];
+  const pt = (c, r) => { const a = (-90 + Math.max(-50, Math.min(50, c)) * 1.2) * Math.PI / 180; return [PIV.x + Math.cos(a) * r, PIV.y + Math.sin(a) * r]; };
+  let out = "";
+  for (let c = -50; c < 50; c += 2) {
+    const [x1, y1] = pt(c, RAD), [x2, y2] = pt(c + 2, RAD), mid = Math.abs(c + 1);
+    const col = mid <= tol ? "#22c55e" : mid <= tol * 2 ? "#f59e0b" : "#ef4444";
+    out += `<path d="M${x1} ${y1} A${RAD} ${RAD} 0 0 1 ${x2} ${y2}" stroke="${col}" stroke-opacity=".8" stroke-width="13" fill="none"/>`;
+  }
+  for (let c = -50; c <= 50; c += 10) {
+    const [x1, y1] = pt(c, RAD - (c === 0 ? 24 : 16)), [x2, y2] = pt(c, RAD - 8);
+    out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#9aa3b5" stroke-width="${c === 0 ? 3 : 1.5}"/>`;
+  }
+  out += `<text x="${PIV.x - RAD + 4}" y="${PIV.y + 4}" font-size="11" fill="#9aa3b5" text-anchor="middle">−50</text>
+          <text x="${PIV.x + RAD - 4}" y="${PIV.y + 4}" font-size="11" fill="#9aa3b5" text-anchor="middle">+50</text>
+          <g id="needle" class="needle"><line x1="${PIV.x}" y1="${PIV.y}" x2="${PIV.x}" y2="${PIV.y - RAD + 6}" stroke-width="4" stroke-linecap="round" stroke="#9aa3b5"/></g>
+          <circle cx="${PIV.x}" cy="${PIV.y}" r="7" fill="currentColor"/>
+          <text id="tunerText" x="${PIV.x}" y="${PIV.y - 46}" text-anchor="middle" font-size="26" font-weight="800" fill="#9aa3b5">–</text>`;
+  svg.innerHTML = out;
+  svg.style.color = "var(--text)";
+}
+function renderTunerNeedle(c) {
+  const n = $("needle"), txt = $("tunerText");
+  if (!n) return;
+  const line = n.firstElementChild;
+  if (c == null) {
+    n.style.transform = "rotate(0deg)"; n.style.opacity = .25; line.setAttribute("stroke", "#9aa3b5");
+    txt.textContent = "–"; txt.setAttribute("fill", "#9aa3b5"); return;
+  }
+  const col = colorFor(c).replace("var(--green)", "#22c55e").replace("var(--orange)", "#f59e0b").replace("var(--red)", "#ef4444");
+  n.style.opacity = 1;
+  n.style.transform = `rotate(${Math.max(-50, Math.min(50, c)) * 1.2}deg)`;
+  line.setAttribute("stroke", col);
+  const semis = Math.round(Math.abs(c) / 100);
+  txt.textContent = Math.abs(c) <= 60 ? (c >= 0 ? "+" : "−") + Math.round(Math.abs(c)) + "¢"
+                  : `${c > 0 ? "+" : "−"}${semis} semitone${semis === 1 ? "" : "s"}`;
+  txt.setAttribute("font-size", Math.abs(c) <= 60 ? 26 : 20);
+  txt.setAttribute("fill", col);
+}
+
+// ---------- Scrolling pitch graph (last 5 s) ----------
+function drawGraph(now) {
+  const cv = $("graph");
+  if (cv.offsetParent === null) return;               // tab hidden
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const centre = ex.target ?? (audio.history.length ? Math.round(NoteMath.midiFromFreq(audio.history.at(-1).f, S.a4)) : 60);
+  // Show ±7 semitones around the target, stretched (up to ±14) to keep your line in view.
+  let lo = centre - 7, hi = centre + 7;
+  for (const p of audio.history) { if (now - p.t > 5) continue;
+    const m = NoteMath.midiFromFreq(p.f, S.a4); lo = Math.min(lo, Math.floor(m) - 1); hi = Math.max(hi, Math.ceil(m) + 1); }
+  lo = Math.max(lo, centre - 14); hi = Math.min(hi, centre + 14);
+  const y = m => h * (1 - (m - lo) / (hi - lo)), x = t => w * (1 - (now - t) / 5);
+  g.font = "10px -apple-system, sans-serif";
+  for (let m = lo; m <= hi; m++) {
+    const isC = NoteMath.pc(m) === 0;
+    g.strokeStyle = dark ? `rgba(255,255,255,${isC ? .18 : .06})` : `rgba(0,0,0,${isC ? .18 : .06})`;
+    g.lineWidth = 1; g.beginPath(); g.moveTo(0, y(m)); g.lineTo(w, y(m)); g.stroke();
+    if ((isC && Math.abs(m - (ex.target ?? -99)) > 1) || m === ex.target) { g.fillStyle = dark ? "#9aa3b5" : "#5f687a"; g.fillText(name(m), 6, y(m) - 3); }
+  }
+  if (ex.target != null) {
+    const tol = TOLERANCE[S.difficulty] / 100;
+    g.fillStyle = "rgba(34,197,94,.2)"; g.fillRect(0, y(ex.target + tol), w, y(ex.target - tol) - y(ex.target + tol));
+    g.strokeStyle = "rgba(34,197,94,.8)"; g.setLineDash([6, 4]); g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(0, y(ex.target)); g.lineTo(w, y(ex.target)); g.stroke(); g.setLineDash([]);
+  }
+  const hist = audio.history; g.lineWidth = 3.5; g.lineCap = "round";
+  for (let i = 1; i < hist.length; i++) {
+    const a = hist[i - 1], b = hist[i];
+    if (b.t - a.t > 0.15) continue;
+    const ma = NoteMath.midiFromFreq(a.f, S.a4), mb = NoteMath.midiFromFreq(b.f, S.a4);
+    let col = "#3b82f6";
+    if (ex.target != null) { const d = Math.abs(mb - ex.target) * 100, tol = TOLERANCE[S.difficulty];
+      col = d <= tol ? "#22c55e" : d <= tol * 2 ? "#f59e0b" : "#3b82f6"; }
+    g.strokeStyle = col; g.beginPath(); g.moveTo(x(a.t), y(ma)); g.lineTo(x(b.t), y(mb)); g.stroke();
+  }
+}
+
+function showSuccess() {
+  const praise = ["Nailed it!", "Spot on!", "Beautiful!", "Perfect pitch!", "Yes!"];
+  $("successText").textContent = praise[Math.floor(Math.random() * praise.length)];
+  $("successSub").textContent = ex.streak > 1 ? `${ex.streak} in a row 🔥` : "";
+  $("success").classList.remove("hidden");
+}
+
+// ---------- Tabs ----------
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  ["Practice", "History", "Settings"].forEach(t => $("tab" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ex.active = b.dataset.tab === "Practice";
+  if (b.dataset.tab === "History") renderHistory();
+  if (b.dataset.tab === "Settings") renderSettings();
+  window.scrollTo(0, 0);
+});
+
+// ---------- Mode sheet ----------
+function renderModeBtn() { const [ic, lb] = MODE_META[S.mode]; $("modeIcon").textContent = ic; $("modeLabel").textContent = lb; }
+function renderModeSheet() {
+  document.querySelectorAll("#segMode button").forEach(b => b.classList.toggle("on", b.dataset.v === S.mode));
+  $("scaleOpts").classList.toggle("hidden", S.mode !== "scale");
+  $("intOpts").classList.toggle("hidden", S.mode !== "interval");
+  $("rootSelect").innerHTML = [...Array(12).keys()].map(pc => `<option value="${pc}" ${pc === S.scaleRoot ? "selected" : ""}>${NoteMath.pitchName(pc, S.accidentals)} major</option>`).join("");
+  $("intSelect").innerHTML = INTERVAL_NAMES.slice(1).map((n, i) => `<option value="${i + 1}" ${i + 1 === S.intervalSemitones ? "selected" : ""}>${n}</option>`).join("");
+  $("dirSelect").value = S.intervalDirection;
+  $("modeHelp").textContent = {
+    random: "A random note from your range each time. Great for the basics.",
+    scale: "Walk up the major scale and back down, one note at a time.",
+    interval: "Hear a starting note, then sing the interval from it by ear (the second note isn't played for you).",
+  }[S.mode];
+}
+$("modeBtn").onclick = () => { renderModeSheet(); $("modeSheet").classList.remove("hidden"); };
+document.querySelectorAll("#segMode button").forEach(b => b.onclick = () => { S.mode = b.dataset.v; renderModeSheet(); });
+$("rootSelect").onchange = e => S.scaleRoot = +e.target.value;
+$("intSelect").onchange = e => S.intervalSemitones = +e.target.value;
+$("dirSelect").onchange = e => S.intervalDirection = e.target.value;
+const closeMode = () => { $("modeSheet").classList.add("hidden"); saveSettings(); renderModeBtn(); ex.restart(); };
+$("modeDone").onclick = closeMode;
+$("modeSheet").onclick = e => { if (e.target.id === "modeSheet") closeMode(); };
+
+// ---------- Practice buttons ----------
+$("playBtn").onclick = () => ex.target != null && playTone(ex.target);
+$("skipBtn").onclick = () => { ex.skip(); renderStats(); };
+$("endBtn").onclick = () => {
+  const acc = ex.accuracy();
+  $("endSummary").textContent = `${ex.hits} of ${ex.attempts} notes hit${acc != null ? ` (${Math.round(acc * 100)}%)` : ""} · score ${ex.score}`;
+  $("endSheet").classList.remove("hidden");
+};
+$("endCancel").onclick = () => $("endSheet").classList.add("hidden");
+$("endConfirm").onclick = () => { saveSession(); $("endSheet").classList.add("hidden"); renderStats(); };
+$("tipClose").onclick = () => { S.tipDismissed = true; saveSettings(); $("tip").classList.add("hidden"); };
+
+function saveSession() {
+  const rec = ex.finishSession();
+  if (rec) { sessions.push(rec); store.set("sessions", sessions); }
+}
+// Save automatically if the app is closed / backgrounded mid-session.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveSession();
+  else if (audio.ctx && audio.ctx.state !== "running") audio.ctx.resume();
+  renderStats();
+});
+
+// ---------- History ----------
+function renderHistory() {
+  const has = sessions.length > 0;
+  $("histEmpty").classList.toggle("hidden", has);
+  $("histBody").classList.toggle("hidden", !has);
+  $("clearHist").disabled = !has;
+  if (!has) return;
+  const hits = sessions.reduce((p, s) => p + s.hits, 0), best = Math.max(...sessions.map(s => s.bestStreak));
+  const overall = Math.round(100 * hits / Math.max(1, sessions.reduce((p, s) => p + s.attempts, 0)));
+  $("histTotals").innerHTML = `<div class="stats" style="border:0; margin:0; padding:0; grid-template-columns:repeat(4,1fr)">
+    <div class="stat"><b>${sessions.length}</b><span>Sessions</span></div><div class="stat"><b>${hits}</b><span>Notes hit</span></div>
+    <div class="stat"><b>${overall}%</b><span>Overall</span></div><div class="stat"><b>${best}</b><span>Best streak</span></div></div>`;
+  const fmt = d => new Date(d).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  $("histList").innerHTML = sessions.slice().reverse().map(s => {
+    const acc = Math.round(100 * s.hits / s.attempts), col = acc >= 80 ? "var(--green)" : acc >= 50 ? "var(--orange)" : "var(--red)";
+    return `<div class="histrow"><div class="top"><span>${fmt(s.date)}</span><span style="color:${col}">${acc}%</span></div>
+      <div class="sub">${MODE_META[s.mode][0]} ${MODE_META[s.mode][1]} · ${s.difficulty[0].toUpperCase() + s.difficulty.slice(1)} · score ${s.score} · ${s.hits}/${s.attempts} hit · best streak ${s.bestStreak}${s.avgCents != null ? ` · ±${Math.round(s.avgCents)}¢` : ""}</div></div>`;
+  }).join("");
+  drawHistChart();
+}
+function drawHistChart() {
+  const cv = $("histChart"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext("2d"); g.scale(dpr, dpr);
+  const pad = { l: 34, r: 10, t: 10, b: 22 }, pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches, muted = dark ? "#9aa3b5" : "#5f687a";
+  g.font = "11px -apple-system, sans-serif"; g.fillStyle = muted;
+  [0, 25, 50, 75, 100].forEach(v => {
+    const yy = pad.t + ph * (1 - v / 100);
+    g.strokeStyle = dark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.08)"; g.beginPath(); g.moveTo(pad.l, yy); g.lineTo(w - pad.r, yy); g.stroke();
+    g.fillText(v + "%", 2, yy + 4);
+  });
+  const pts = sessions.map((s, i) => [pad.l + (sessions.length === 1 ? pw / 2 : pw * i / (sessions.length - 1)), pad.t + ph * (1 - s.hits / s.attempts)]);
+  g.strokeStyle = "#3b82f6"; g.lineWidth = 2.5; g.lineJoin = "round"; g.beginPath();
+  pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
+  g.fillStyle = "#3b82f6"; pts.forEach(([px, py]) => { g.beginPath(); g.arc(px, py, 4, 0, 7); g.fill(); });
+  g.fillStyle = muted;
+  if (sessions.length) {
+    const d = s => new Date(s.date).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    g.fillText(d(sessions[0]), pad.l, h - 6);
+    if (sessions.length > 1) { const lbl = d(sessions.at(-1)); g.fillText(lbl, w - pad.r - g.measureText(lbl).width, h - 6); }
+  }
+}
+let clearArmed = false;
+$("clearHist").onclick = () => {
+  if (!clearArmed) { clearArmed = true; $("clearHist").textContent = "Tap again to delete all"; setTimeout(() => { clearArmed = false; $("clearHist").textContent = "Clear"; }, 3000); return; }
+  sessions = []; store.set("sessions", sessions); clearArmed = false; $("clearHist").textContent = "Clear"; renderHistory();
+};
+
+// ---------- Settings ----------
+function renderSettings() {
+  document.querySelectorAll("#segDiff button").forEach(b => b.classList.toggle("on", b.dataset.v === S.difficulty));
+  document.querySelectorAll("#segAcc button").forEach(b => b.classList.toggle("on", b.dataset.v === S.accidentals));
+  $("holdSlider").value = S.holdTime; $("holdVal").textContent = S.holdTime.toFixed(1) + " s";
+  $("a4Val").textContent = S.a4 + " Hz";
+  $("autoSwitch").classList.toggle("on", S.autoPlay);
+  $("sensSlider").value = S.sensitivity; $("sensVal").textContent = S.sensitivity + " / 10";
+  $("lowVal").textContent = name(S.rangeLow); $("highVal").textContent = name(S.rangeHigh);
+}
+const changed = (restart) => { saveSettings(); renderSettings(); buildTuner(); renderTarget(false); if (restart) ex.restart(); };
+document.querySelectorAll("#segDiff button").forEach(b => b.onclick = () => { S.difficulty = b.dataset.v; changed(); });
+document.querySelectorAll("#segAcc button").forEach(b => b.onclick = () => { S.accidentals = b.dataset.v; changed(); });
+$("holdSlider").oninput = e => { S.holdTime = +e.target.value; changed(); };
+$("a4Minus").onclick = () => { S.a4 = Math.max(430, S.a4 - 1); changed(); };
+$("a4Plus").onclick = () => { S.a4 = Math.min(450, S.a4 + 1); changed(); };
+$("autoSwitch").onclick = () => { S.autoPlay = !S.autoPlay; changed(); };
+$("sensSlider").oninput = e => { S.sensitivity = +e.target.value; if (audio.detector) audio.detector.gateRMS = gateFor(S.sensitivity); changed(); };
+$("testSound").onclick = () => playTone(69);
+$("lowMinus").onclick = () => { S.rangeLow = Math.max(28, S.rangeLow - 1); changed(true); };
+$("lowPlus").onclick = () => { S.rangeLow = Math.min(S.rangeHigh - 5, S.rangeLow + 1); changed(true); };
+$("highMinus").onclick = () => { S.rangeHigh = Math.max(S.rangeLow + 5, S.rangeHigh - 1); changed(true); };
+$("highPlus").onclick = () => { S.rangeHigh = Math.min(96, S.rangeHigh + 1); changed(true); };
+$("redoRange").onclick = () => openRange(false);
+
+// ---------- Range setup ----------
+const rangeState = { listening: false, step: "low", low: null, high: null, cand: null, since: 0, progress: 0, first: true };
+function openRange(first) {
+  rangeState.first = first;
+  $("rangeCancel").classList.toggle("hidden", first);
+  showRangePane("rangeChoose");
+  $("presetGrid").innerHTML = VOICE_PRESETS.map((p, i) => `<button class="preset" data-i="${i}"><b>${p.name}</b><span>${name(p.low)} – ${name(p.high)}</span></button>`).join("");
+  document.querySelectorAll("#presetGrid .preset").forEach(b => b.onclick = () => { const p = VOICE_PRESETS[+b.dataset.i]; saveRange(p.low, p.high); });
+  $("rangeOverlay").classList.remove("hidden");
+}
+function showRangePane(id) { ["rangeChoose", "rangeListen", "rangeReview"].forEach(p => $(p).classList.toggle("hidden", p !== id)); }
+function startListening(step) {
+  Object.assign(rangeState, { listening: true, step, cand: null, progress: 0 });
+  const low = step === "low";
+  $("rlStep").textContent = low ? "STEP 1 OF 2" : "STEP 2 OF 2";
+  $("rlTitle").textContent = low ? "Sing your LOWEST comfortable note" : "Now sing your HIGHEST comfortable note";
+  $("rlSub").textContent = low ? "Not the lowest growl you can manage, but a note you could sing in a song. Hold it steady for a moment."
+                              : "Not a strained squeak, but a note you can sing clearly. Hold it steady for a moment.";
+  $("rlLow").textContent = low ? "" : `Lowest note: ${name(rangeState.low)}`;
+  renderRangeListen();
+  showRangePane("rangeListen");
+}
+function renderRangeListen() {
+  $("rlNote").textContent = rangeState.cand == null ? "…" : name(rangeState.cand);
+  $("rlState").textContent = rangeState.cand == null ? "Listening…" : "Hold it…";
+  $("rlRing").style.strokeDashoffset = 276.46 * (1 - rangeState.progress);
+  $("rlUse").disabled = rangeState.cand == null;
+  $("rlUse").textContent = rangeState.cand == null ? "Use this note" : `Use ${name(rangeState.cand)}`;
+}
+function rangeListen(f, t) {
+  if (!f || toneBusy()) { rangeState.cand = null; rangeState.progress = 0; renderRangeListen(); return; }
+  const m = NoteMath.reading(f, S.a4).nearest;
+  if (rangeState.step === "high" && m <= rangeState.low) { rangeState.cand = null; rangeState.progress = 0; renderRangeListen(); return; }
+  if (m !== rangeState.cand) { rangeState.cand = m; rangeState.since = t; rangeState.progress = 0; }
+  else rangeState.progress = Math.min(1, (t - rangeState.since) / 1.5);
+  renderRangeListen();
+  if (rangeState.progress >= 1) capture(m);
+}
+function capture(m) {
+  try { navigator.vibrate && navigator.vibrate(25); } catch {}
+  if (rangeState.step === "low") { rangeState.low = m; startListening("high"); }
+  else {
+    rangeState.high = m; rangeState.listening = false;
+    const lo = Math.min(rangeState.low, m), hi = Math.max(rangeState.low, m), span = hi - lo;
+    $("rrRange").textContent = `${name(lo)} – ${name(hi)}`;
+    $("rrSpan").textContent = `${span} semitones`;
+    $("rrWarn").classList.toggle("hidden", span >= 5);
+    $("rrSave").disabled = span < 5;
+    showRangePane("rangeReview");
+  }
+}
+$("findRangeBtn").onclick = () => { rangeState.low = rangeState.high = null; startListening("low"); };
+$("rlBack").onclick = () => { if (rangeState.step === "high") startListening("low"); else { rangeState.listening = false; showRangePane("rangeChoose"); } };
+$("rlUse").onclick = () => rangeState.cand != null && capture(rangeState.cand);
+$("rrRetry").onclick = () => startListening("low");
+$("rrSave").onclick = () => saveRange(Math.min(rangeState.low, rangeState.high), Math.max(rangeState.low, rangeState.high));
+$("rangeCancel").onclick = () => { rangeState.listening = false; $("rangeOverlay").classList.add("hidden"); };
+function saveRange(lo, hi) {
+  rangeState.listening = false;
+  S.rangeLow = lo; S.rangeHigh = hi; S.hasRange = true; saveSettings();
+  $("rangeOverlay").classList.add("hidden");
+  renderSettings(); ex.restart();
+}
+
+// ---------- Start ----------
+$("startBtn").onclick = async () => {
+  $("startBtn").disabled = true; $("startBtn").textContent = "Starting…";
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+      throw new Error("This page needs to be opened over https:// in Safari or Chrome to use the microphone.");
+    await startAudio();
+    $("startOverlay").classList.add("hidden");
+    ex.active = true;
+    $("tip").classList.toggle("hidden", S.tipDismissed);
+    if (!S.hasRange) openRange(true); else ex.restart();
+  } catch (err) {
+    const denied = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
+    $("startError").textContent = denied
+      ? "Microphone access was blocked. On iPhone: Settings → Safari → Microphone → Allow (or tap “aA” in the address bar → Website Settings → Microphone → Allow), then reload."
+      : (err && err.message) || "Couldn't start audio.";
+    $("startError").classList.remove("hidden");
+    $("startBtn").disabled = false; $("startBtn").textContent = "Try again";
+  }
+};
+
+buildTuner(); renderModeBtn(); renderStats(); renderPiano(); renderSettings();
+</script>
+</body>
+</html>
